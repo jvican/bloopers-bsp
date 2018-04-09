@@ -29,8 +29,8 @@ object Bloupe {
     implicit val scheduler: Scheduler = Scheduler(
         pool, ExecutionModel.AlwaysAsyncExecution)
 
-    val cwd = new File(".").getCanonicalFile.toURI
-    println(cwd)
+    val bloopConfigDir = new File("./.bloop-config").getCanonicalFile
+    println("bloop config: " + bloopConfigDir)
 
     val sockdir = Files.createTempDirectory("bsp-")
     val id = java.lang.Long.toString(Random.nextLong(), Character.MAX_RADIX)
@@ -63,7 +63,7 @@ object Bloupe {
 
       val initializeServerReq = endpoints.Build.initialize.request(
         InitializeBuildParams(
-          rootUri = cwd.toString,
+          rootUri = bloopConfigDir.toString,
           Some(BuildClientCapabilities(List("scala")))
         )
       )
@@ -73,9 +73,12 @@ object Bloupe {
 
       val initialized = for {
         init <- initializeServerReq
+        _ = endpoints.Build.initialized.notify(InitializedBuildParams())
         targets <- targetsReq
-        compile <- compileReq
+        toCompile = targets.right.get.targets.flatMap(_.id)
+        compile <- endpoints.BuildTarget.compile.request(CompileParams(toCompile))
       } yield {
+
         println(s"~~ init: $init")
         println(s"~~ targets: ${targets.right.get.targets}")
         println(s"~~ compile: $compile")
@@ -97,7 +100,7 @@ object Bloupe {
       }
     }
 
-    println("done??")
+    println("done blooping.")
 
   }
 }
